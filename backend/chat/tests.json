@@ -1,0 +1,29 @@
+{
+  "tests": [
+    {
+      "name": "Получить сообщения",
+      "method": "GET",
+      "path": "/?action=messages",
+      "expectedStatus": 200,
+      "expectedBody": {"messages": []},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Получить онлайн",
+      "method": "GET",
+      "path": "/?action=online",
+      "expectedStatus": 200,
+      "expectedBody": {"online": []},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Отправить сообщение",
+      "method": "POST",
+      "path": "/",
+      "body": {"nickname": "Тестовый", "message": "Привет всем!"},
+      "expectedStatus": 200,
+      "expectedBody": {"id": 1},
+      "bodyMatcher": "partial"
+    }
+  ]
+}

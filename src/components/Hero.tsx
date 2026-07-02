@@ -1,7 +1,9 @@
 import { useScroll, useTransform, motion } from "framer-motion";
 import { useRef } from "react";
+import { useNavigate } from "react-router-dom";
 
 export default function Hero() {
+  const navigate = useNavigate();
   const container = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
     target: container,
@@ -35,13 +37,22 @@ export default function Hero() {
           кто сейчас в сети
         </p>
         <div className="flex flex-wrap gap-4 justify-center">
-          <button className="bg-red-500 text-white px-6 py-3 text-sm uppercase tracking-wide transition-all duration-300 hover:bg-red-600 cursor-pointer">
+          <button
+            onClick={() => navigate("/chat")}
+            className="bg-red-500 text-white px-6 py-3 text-sm uppercase tracking-wide transition-all duration-300 hover:bg-red-600 cursor-pointer rounded-lg"
+          >
             Чат для всех
           </button>
-          <button className="bg-blue-500 text-white px-6 py-3 text-sm uppercase tracking-wide transition-all duration-300 hover:bg-blue-600 cursor-pointer">
+          <button
+            onClick={() => navigate("/chat")}
+            className="bg-blue-500 text-white px-6 py-3 text-sm uppercase tracking-wide transition-all duration-300 hover:bg-blue-600 cursor-pointer rounded-lg"
+          >
             Личка
           </button>
-          <button className="border border-white text-white px-6 py-3 text-sm uppercase tracking-wide transition-all duration-300 hover:bg-white hover:text-black cursor-pointer">
+          <button
+            onClick={() => navigate("/chat")}
+            className="border border-white text-white px-6 py-3 text-sm uppercase tracking-wide transition-all duration-300 hover:bg-white hover:text-black cursor-pointer rounded-lg"
+          >
             Друзья
           </button>
         </div>
