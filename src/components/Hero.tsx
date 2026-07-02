@@ -27,11 +27,24 @@ export default function Hero() {
 
       <div className="relative z-10 text-center text-white">
         <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight mb-6">
-          ОТКРОЙ
+          <span className="text-red-500">РП</span>{" "}
+          <span className="text-blue-500">СТРАН</span> ЧАТ
         </h1>
-        <p className="text-lg md:text-xl max-w-2xl mx-auto px-6 opacity-90">
-          Исследуй границы дизайна с иммерсивным параллакс-эффектом
+        <p className="text-lg md:text-xl max-w-2xl mx-auto px-6 opacity-90 mb-8">
+          Общий чат для всех игроков сервера — общайся, находи друзей и узнавай,
+          кто сейчас в сети
         </p>
+        <div className="flex flex-wrap gap-4 justify-center">
+          <button className="bg-red-500 text-white px-6 py-3 text-sm uppercase tracking-wide transition-all duration-300 hover:bg-red-600 cursor-pointer">
+            Чат для всех
+          </button>
+          <button className="bg-blue-500 text-white px-6 py-3 text-sm uppercase tracking-wide transition-all duration-300 hover:bg-blue-600 cursor-pointer">
+            Личка
+          </button>
+          <button className="border border-white text-white px-6 py-3 text-sm uppercase tracking-wide transition-all duration-300 hover:bg-white hover:text-black cursor-pointer">
+            Друзья
+          </button>
+        </div>
       </div>
     </div>
   );
