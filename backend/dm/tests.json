@@ -1,0 +1,12 @@
+{
+  "tests": [
+    {
+      "name": "Список чатов",
+      "method": "GET",
+      "path": "/?action=chats&nick=Тест",
+      "expectedStatus": 200,
+      "expectedBody": {"chats": []},
+      "bodyMatcher": "partial"
+    }
+  ]
+}

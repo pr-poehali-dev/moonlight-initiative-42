@@ -44,13 +44,13 @@ export default function Hero() {
             Чат для всех
           </button>
           <button
-            onClick={() => navigate("/chat")}
+            onClick={() => navigate("/dm")}
             className="bg-blue-500 text-white px-6 py-3 text-sm uppercase tracking-wide transition-all duration-300 hover:bg-blue-600 cursor-pointer rounded-lg"
           >
             Личка
           </button>
           <button
-            onClick={() => navigate("/chat")}
+            onClick={() => navigate("/friends")}
             className="border border-white text-white px-6 py-3 text-sm uppercase tracking-wide transition-all duration-300 hover:bg-white hover:text-black cursor-pointer rounded-lg"
           >
             Друзья
