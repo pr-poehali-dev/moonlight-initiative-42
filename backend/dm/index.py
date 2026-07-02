@@ -37,13 +37,13 @@ def handler(event: dict, context) -> dict:
             if not other_nick:
                 return {"statusCode": 400, "headers": headers, "body": json.dumps({"error": "Укажи собеседника"})}
             cur.execute(
-                f"SELECT id, sender, recipient, message, created_at FROM {SCHEMA}.dm_messages "
+                f"SELECT id, sender, recipient, message, image_url, created_at FROM {SCHEMA}.dm_messages "
                 f"WHERE (sender='{my_nick}' AND recipient='{other_nick}') OR (sender='{other_nick}' AND recipient='{my_nick}') "
                 f"ORDER BY created_at ASC LIMIT 100"
             )
             rows = cur.fetchall()
             conn.close()
-            msgs = [{"id": r[0], "sender": r[1], "recipient": r[2], "message": r[3], "created_at": r[4].isoformat()} for r in rows]
+            msgs = [{"id": r[0], "sender": r[1], "recipient": r[2], "message": r[3], "image_url": r[4], "created_at": r[5].isoformat()} for r in rows]
             return {"statusCode": 200, "headers": headers, "body": json.dumps({"messages": msgs})}
 
         # list of chats (unique interlocutors)
@@ -63,11 +63,14 @@ def handler(event: dict, context) -> dict:
         sender = esc((body.get("sender") or "").strip()[:50])
         recipient = esc((body.get("recipient") or "").strip()[:50])
         message = esc((body.get("message") or "").strip()[:1000])
-        if not sender or not recipient or not message:
+        image_url = esc((body.get("image_url") or "").strip()[:500])
+        if not sender or not recipient or (not message and not image_url):
             return {"statusCode": 400, "headers": headers, "body": json.dumps({"error": "Заполни все поля"})}
+        msg_val = message or "📷"
+        img_val = f"'{image_url}'" if image_url else "NULL"
         conn = get_conn()
         cur = conn.cursor()
-        cur.execute(f"INSERT INTO {SCHEMA}.dm_messages (sender, recipient, message) VALUES ('{sender}', '{recipient}', '{message}') RETURNING id, created_at")
+        cur.execute(f"INSERT INTO {SCHEMA}.dm_messages (sender, recipient, message, image_url) VALUES ('{sender}', '{recipient}', '{msg_val}', {img_val}) RETURNING id, created_at")
         row = cur.fetchone()
         conn.commit()
         conn.close()

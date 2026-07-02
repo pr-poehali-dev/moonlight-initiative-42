@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "@/components/ui/icon";
+import { useImageUpload } from "@/hooks/useImageUpload";
 
 const CHAT_URL = "https://functions.poehali.dev/aa4fa1c9-7478-4d03-95e7-ac00d6be4e6e";
 
@@ -21,6 +22,8 @@ export default function Chat() {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const [lightbox, setLightbox] = useState<string | null>(null);
+  const { uploading, preview, fileRef, pickFile, onFileChange, uploadImage, clearPreview } = useImageUpload();
 
   const fetchMessages = async () => {
     const res = await fetch(`${CHAT_URL}?action=messages`);
@@ -38,10 +41,7 @@ export default function Chat() {
     if (!nickname) return;
     fetchMessages();
     fetchOnline();
-    const interval = setInterval(() => {
-      fetchMessages();
-      fetchOnline();
-    }, 5000);
+    const interval = setInterval(() => { fetchMessages(); fetchOnline(); }, 5000);
     return () => clearInterval(interval);
   }, [nickname]);
 
@@ -57,23 +57,24 @@ export default function Chat() {
   };
 
   const sendMessage = async () => {
-    if (!text.trim() || sending) return;
+    if ((!text.trim() && !preview) || sending) return;
     setSending(true);
+    let imageUrl: string | null = null;
+    if (preview) imageUrl = await uploadImage();
     await fetch(CHAT_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nickname, message: text.trim() }),
+      body: JSON.stringify({ nickname, message: text.trim() || "📷", image_url: imageUrl }),
     });
     setText("");
+    clearPreview();
     await fetchMessages();
     await fetchOnline();
     setSending(false);
   };
 
-  const formatTime = (iso: string) => {
-    const d = new Date(iso);
-    return d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
-  };
+  const formatTime = (iso: string) =>
+    new Date(iso).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
 
   if (!nickname) {
     return (
@@ -84,23 +85,14 @@ export default function Chat() {
             <span className="text-white">ЧАТ</span>
           </h1>
           <p className="text-gray-400 mb-6 text-sm">Введи свой никнейм чтобы войти</p>
-          <input
-            className="w-full bg-gray-800 border border-gray-600 text-white rounded-lg px-4 py-3 mb-4 outline-none focus:border-blue-500"
-            placeholder="Твой ник..."
-            value={nickInput}
+          <input className="w-full bg-gray-800 border border-gray-600 text-white rounded-lg px-4 py-3 mb-4 outline-none focus:border-blue-500"
+            placeholder="Твой ник..." value={nickInput}
             onChange={(e) => setNickInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && enterChat()}
-          />
-          <button
-            onClick={enterChat}
-            className="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-lg transition-colors"
-          >
+            onKeyDown={(e) => e.key === "Enter" && enterChat()} />
+          <button onClick={enterChat} className="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-lg transition-colors">
             Войти в чат
           </button>
-          <button
-            onClick={() => navigate("/")}
-            className="mt-3 text-gray-500 hover:text-gray-300 text-sm transition-colors"
-          >
+          <button onClick={() => navigate("/")} className="mt-3 text-gray-500 hover:text-gray-300 text-sm transition-colors">
             ← На главную
           </button>
         </div>
@@ -110,7 +102,14 @@ export default function Chat() {
 
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col">
-      {/* Header */}
+      {/* Lightbox */}
+      {lightbox && (
+        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4" onClick={() => setLightbox(null)}>
+          <img src={lightbox} className="max-w-full max-h-full rounded-xl object-contain" />
+          <button className="absolute top-4 right-4 text-white hover:text-gray-300"><Icon name="X" size={28} /></button>
+        </div>
+      )}
+
       <div className="bg-gray-900 border-b border-gray-800 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate("/")} className="text-gray-400 hover:text-white transition-colors">
@@ -129,34 +128,30 @@ export default function Chat() {
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Messages */}
         <div className="flex-1 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
             {messages.length === 0 && (
-              <div className="text-center text-gray-600 mt-10">
-                Пока тихо... Напиши первым!
-              </div>
+              <div className="text-center text-gray-600 mt-10">Пока тихо... Напиши первым!</div>
             )}
             {messages.map((msg) => {
               const isMe = msg.nickname === nickname;
               return (
                 <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-xs lg:max-w-md ${isMe ? "items-end" : "items-start"} flex flex-col`}>
-                    {!isMe && (
-                      <span className="text-xs text-blue-400 mb-1 ml-1">{msg.nickname}</span>
+                  <div className={`max-w-xs lg:max-w-md flex flex-col ${isMe ? "items-end" : "items-start"}`}>
+                    {!isMe && <span className="text-xs text-blue-400 mb-1 ml-1">{msg.nickname}</span>}
+                    {msg.image_url && (
+                      <img
+                        src={msg.image_url}
+                        className="rounded-xl max-w-[220px] cursor-pointer hover:opacity-90 transition-opacity mb-1"
+                        onClick={() => setLightbox(msg.image_url!)}
+                      />
                     )}
-                    <div
-                      className={`px-4 py-2 rounded-2xl text-sm break-words ${
-                        isMe
-                          ? "bg-red-500 text-white rounded-tr-sm"
-                          : "bg-gray-800 text-gray-100 rounded-tl-sm"
-                      }`}
-                    >
-                      {msg.message}
-                    </div>
-                    <span className="text-xs text-gray-600 mt-1 mx-1">
-                      {formatTime(msg.created_at)}
-                    </span>
+                    {msg.message && msg.message !== "📷" && (
+                      <div className={`px-4 py-2 rounded-2xl text-sm break-words ${isMe ? "bg-red-500 text-white rounded-tr-sm" : "bg-gray-800 text-gray-100 rounded-tl-sm"}`}>
+                        {msg.message}
+                      </div>
+                    )}
+                    <span className="text-xs text-gray-600 mt-1 mx-1">{formatTime(msg.created_at)}</span>
                   </div>
                 </div>
               );
@@ -164,8 +159,25 @@ export default function Chat() {
             <div ref={bottomRef} />
           </div>
 
+          {/* Preview */}
+          {preview && (
+            <div className="bg-gray-900 border-t border-gray-800 px-4 pt-3 flex items-start gap-2">
+              <div className="relative">
+                <img src={preview} className="h-20 w-20 object-cover rounded-xl" />
+                <button onClick={clearPreview} className="absolute -top-2 -right-2 bg-gray-700 hover:bg-gray-600 text-white rounded-full p-0.5 transition-colors">
+                  <Icon name="X" size={14} />
+                </button>
+              </div>
+              <p className="text-gray-500 text-xs mt-2">Фото готово к отправке</p>
+            </div>
+          )}
+
           {/* Input */}
           <div className="bg-gray-900 border-t border-gray-800 px-4 py-3 flex gap-2">
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onFileChange} />
+            <button onClick={pickFile} className="text-gray-500 hover:text-gray-300 transition-colors px-1">
+              <Icon name="Image" size={22} />
+            </button>
             <input
               className="flex-1 bg-gray-800 border border-gray-700 text-white rounded-xl px-4 py-2 outline-none focus:border-blue-500 text-sm"
               placeholder="Написать сообщение..."
@@ -175,15 +187,14 @@ export default function Chat() {
             />
             <button
               onClick={sendMessage}
-              disabled={sending || !text.trim()}
+              disabled={sending || uploading || (!text.trim() && !preview)}
               className="bg-red-500 hover:bg-red-600 disabled:opacity-40 text-white rounded-xl px-4 py-2 transition-colors"
             >
-              <Icon name="Send" size={18} />
+              {sending || uploading ? <Icon name="Loader" size={18} className="animate-spin" /> : <Icon name="Send" size={18} />}
             </button>
           </div>
         </div>
 
-        {/* Online sidebar */}
         <div className="hidden md:flex w-48 bg-gray-900 border-l border-gray-800 flex-col p-3">
           <h3 className="text-xs uppercase text-gray-500 tracking-wide mb-3">В сети</h3>
           <div className="space-y-2">
@@ -193,9 +204,7 @@ export default function Chat() {
                 {u}
               </div>
             ))}
-            {online.length === 0 && (
-              <p className="text-xs text-gray-600">Никого нет</p>
-            )}
+            {online.length === 0 && <p className="text-xs text-gray-600">Никого нет</p>}
           </div>
         </div>
       </div>

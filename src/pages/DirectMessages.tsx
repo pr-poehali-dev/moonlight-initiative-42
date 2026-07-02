@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "@/components/ui/icon";
+import { useImageUpload } from "@/hooks/useImageUpload";
 
 const DM_URL = "https://functions.poehali.dev/bf4e81af-42f6-423a-a7df-1b7378f32d5b";
 
 interface Chat { nick: string; last_time: string; }
-interface Message { id: number; sender: string; recipient: string; message: string; created_at: string; }
+interface Message { id: number; sender: string; recipient: string; message: string; image_url: string | null; created_at: string; }
 
 function NickGate({ onEnter }: { onEnter: (nick: string) => void }) {
   const [input, setInput] = useState("");
@@ -32,7 +33,9 @@ function ChatView({ myNick, other, onBack }: { myNick: string; other: string; on
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [lightbox, setLightbox] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const { uploading, preview, fileRef, pickFile, onFileChange, uploadImage, clearPreview } = useImageUpload();
 
   const fetchMsgs = async () => {
     const res = await fetch(`${DM_URL}?action=messages&nick=${encodeURIComponent(myNick)}&other=${encodeURIComponent(other)}`);
@@ -44,11 +47,14 @@ function ChatView({ myNick, other, onBack }: { myNick: string; other: string; on
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
   const send = async () => {
-    if (!text.trim() || sending) return;
+    if ((!text.trim() && !preview) || sending) return;
     setSending(true);
+    let imageUrl: string | null = null;
+    if (preview) imageUrl = await uploadImage();
     await fetch(DM_URL, { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sender: myNick, recipient: other, message: text.trim() }) });
+      body: JSON.stringify({ sender: myNick, recipient: other, message: text.trim(), image_url: imageUrl }) });
     setText("");
+    clearPreview();
     await fetchMsgs();
     setSending(false);
   };
@@ -57,6 +63,12 @@ function ChatView({ myNick, other, onBack }: { myNick: string; other: string; on
 
   return (
     <div className="flex flex-col h-full">
+      {lightbox && (
+        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4" onClick={() => setLightbox(null)}>
+          <img src={lightbox} className="max-w-full max-h-full rounded-xl object-contain" />
+          <button className="absolute top-4 right-4 text-white hover:text-gray-300"><Icon name="X" size={28} /></button>
+        </div>
+      )}
       <div className="bg-gray-800 px-4 py-3 flex items-center gap-3 border-b border-gray-700">
         <button onClick={onBack} className="text-gray-400 hover:text-white transition-colors"><Icon name="ArrowLeft" size={20} /></button>
         <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm">
@@ -71,9 +83,15 @@ function ChatView({ myNick, other, onBack }: { myNick: string; other: string; on
           return (
             <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
               <div className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}>
-                <div className={`px-4 py-2 rounded-2xl text-sm break-words max-w-xs lg:max-w-md ${isMe ? "bg-blue-500 text-white rounded-tr-sm" : "bg-gray-800 text-gray-100 rounded-tl-sm"}`}>
-                  {msg.message}
-                </div>
+                {msg.image_url && (
+                  <img src={msg.image_url} className="rounded-xl max-w-[220px] cursor-pointer hover:opacity-90 transition-opacity mb-1"
+                    onClick={() => setLightbox(msg.image_url!)} />
+                )}
+                {msg.message && msg.message !== "📷" && (
+                  <div className={`px-4 py-2 rounded-2xl text-sm break-words max-w-xs lg:max-w-md ${isMe ? "bg-blue-500 text-white rounded-tr-sm" : "bg-gray-800 text-gray-100 rounded-tl-sm"}`}>
+                    {msg.message}
+                  </div>
+                )}
                 <span className="text-xs text-gray-600 mt-1">{fmt(msg.created_at)}</span>
               </div>
             </div>
@@ -81,13 +99,28 @@ function ChatView({ myNick, other, onBack }: { myNick: string; other: string; on
         })}
         <div ref={bottomRef} />
       </div>
+      {preview && (
+        <div className="bg-gray-900 border-t border-gray-800 px-4 pt-3 flex items-start gap-2">
+          <div className="relative">
+            <img src={preview} className="h-20 w-20 object-cover rounded-xl" />
+            <button onClick={clearPreview} className="absolute -top-2 -right-2 bg-gray-700 hover:bg-gray-600 text-white rounded-full p-0.5 transition-colors">
+              <Icon name="X" size={14} />
+            </button>
+          </div>
+          <p className="text-gray-500 text-xs mt-2">Фото готово к отправке</p>
+        </div>
+      )}
       <div className="bg-gray-900 border-t border-gray-800 px-4 py-3 flex gap-2">
+        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onFileChange} />
+        <button onClick={pickFile} className="text-gray-500 hover:text-gray-300 transition-colors px-1">
+          <Icon name="Image" size={22} />
+        </button>
         <input className="flex-1 bg-gray-800 border border-gray-700 text-white rounded-xl px-4 py-2 outline-none focus:border-blue-500 text-sm"
           placeholder="Сообщение..." value={text} onChange={e => setText(e.target.value)}
           onKeyDown={e => e.key === "Enter" && send()} />
-        <button onClick={send} disabled={sending || !text.trim()}
+        <button onClick={send} disabled={sending || uploading || (!text.trim() && !preview)}
           className="bg-blue-500 hover:bg-blue-600 disabled:opacity-40 text-white rounded-xl px-4 py-2 transition-colors">
-          <Icon name="Send" size={18} />
+          {sending || uploading ? <Icon name="Loader" size={18} className="animate-spin" /> : <Icon name="Send" size={18} />}
         </button>
       </div>
     </div>
